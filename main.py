@@ -6,7 +6,7 @@ import tempfile
 import speech_recognition as sr
 import pygame
 from gtts import gTTS
-from deep_translator import GoogleTranslator
+import requests
 
 # ── Unicode output for Tamil characters on Windows ───────────────────────────
 sys.stdout.reconfigure(encoding="utf-8")
@@ -62,21 +62,29 @@ def speak(text: str, lang: str = "en") -> None:
         print(f"⚠  TTS error: {e}")
 
 # ── Translator setup ─────────────────────────────────────────────────────────
-# GoogleTranslator returns proper Tamil Unicode script (e.g. உங்களுடைய பெயர் என்ன).
-# A 1-second sleep before each call keeps us well under Google's rate limit.
-translator = GoogleTranslator(source="en", target="ta")
+# Uses the public Google Translate gtx endpoint directly via requests.
+# This is the same endpoint the browser widget uses — stable, no API key
+# required, and returns proper Tamil Unicode script.
+_TRANSLATE_URL = "https://translate.googleapis.com/translate_a/single"
+_TRANSLATE_PARAMS = {"client": "gtx", "sl": "en", "tl": "ta", "dt": "t"}
 
 def translate(text: str, retries: int = 3) -> str:
-    """Translate with exponential-backoff retry on transient errors."""
+    """Translate English → Tamil (Unicode script) with retry on errors."""
     for attempt in range(1, retries + 1):
         try:
-            time.sleep(1)   # stay under Google's 5 req/s free limit
-            result = translator.translate(text)
-            return result
+            resp = requests.get(
+                _TRANSLATE_URL,
+                params={**_TRANSLATE_PARAMS, "q": text},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            # Response structure: [[[translated, original, ...], ...], ...]
+            translated = "".join(chunk[0] for chunk in resp.json()[0] if chunk[0])
+            return translated
         except Exception as e:
             if attempt < retries:
                 wait = attempt * 2
-                print(f"⚠  Translation attempt {attempt} failed. Retrying in {wait}s…")
+                print(f"⚠  Translation attempt {attempt} failed ({e}). Retrying in {wait}s…")
                 time.sleep(wait)
             else:
                 raise
