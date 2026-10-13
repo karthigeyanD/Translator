@@ -1,20 +1,25 @@
-from deep_translator import GoogleTranslator
+import translators as ts
+import sys
 
-translator = GoogleTranslator(source="en", target="ta")
+# Fix Unicode output for Tamil characters on Windows
+sys.stdout.reconfigure(encoding="utf-8")
 
 print("English to Tamil Translator")
 print("Type 'exit' to quit")
 
 while True:
-    text = input("\nEnter English text: ")
+    text = input("\nEnter English text: ").strip()
+
+    if not text:
+        continue
 
     if text.lower() == "exit":
         print("Translator closed.")
         break
 
     try:
-        translated_text = translator.translate(text)
+        translated_text = ts.translate_text(text, translator="bing", from_language="en", to_language="ta")
         print("Tamil Translation:", translated_text)
 
     except Exception as e:
-        print("Translation failed. Check your internet connection.")
+        print(f"Translation failed: {e}")
